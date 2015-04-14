@@ -4,6 +4,7 @@ import requests
 from urllib.parse import urlparse, urlunparse
 import sys
 import icalendar
+import click
 
 
 def is_url(s):
@@ -32,11 +33,17 @@ def merge(cals):
     merged = icalendar.Calendar()
     for cal in cals:
         for component in cal.subcomponents:
-            if component.name == 'VEVENT':
+            if isinstance(component, icalendar.cal.Event):
                 merged.add_component(component)
     return merged
 
 
-if __name__ == '__main__':
-    cal = merge(parse_calendar(read(arg)) for arg in sys.argv[1:])
+@click.command()
+@click.argument('calendars', nargs=-1)
+def calcat(calendars):
+    cal = merge(parse_calendar(read(path)) for path in calendars)
     sys.stdout.buffer.write(cal.to_ical())
+
+
+if __name__ == '__main__':
+    calcat()
