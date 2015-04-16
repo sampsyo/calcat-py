@@ -6,6 +6,7 @@ import sys
 import icalendar
 import click
 import itertools
+import arrow
 
 
 def is_url(s):
@@ -45,27 +46,47 @@ def make_calendar(events):
     return cal
 
 
-def opaquify(event, whitelist=('DTSTART', 'DTEND', 'UID'), title='Event'):
+def opaquify(event, whitelist=('DTSTART', 'DTEND', 'UID')):
     """Get a version of the event with all the identifying information
     removed (i.e., just show that you're busy then).
     """
     e = icalendar.cal.Event()
     for key in whitelist:
         e[key] = event[key]
-    e['SUMMARY'] = icalendar.prop.vText(title.encode('utf8'))
     return e
+
+
+def describe_events(events):
+    """Summarize a list of events in English, generating lines for
+    output.
+    """
+    for event in events:
+        # Ignore it if we don't have a start and end time.
+        if 'DTSTART' in event and 'DTEND' in event:
+            start = arrow.get(event.decoded('DTSTART'))
+            end = arrow.get(event.decoded('DTEND'))
+            line = '* {} to {}'.format(start.humanize(), end.humanize())
+            if 'SUMMARY' in event:
+                title = str(event['SUMMARY'])
+                line += ': {}'.format(title)
+            yield line
 
 
 @click.command()
 @click.argument('calendars', nargs=-1)
 @click.option('--opaque', '-o', is_flag=True)
-def calcat(calendars, opaque):
+@click.option('--describe', '-d', is_flag=True)
+def calcat(calendars, opaque, describe):
     cals = (parse_calendar(read(path)) for path in calendars)
     events = itertools.chain.from_iterable(events_in(cal) for cal in cals)
     if opaque:
         events = map(opaquify, events)
-    merged = make_calendar(events)
-    sys.stdout.buffer.write(merged.to_ical())
+    if describe:
+        for line in describe_events(events):
+            click.echo(line)
+    else:
+        merged = make_calendar(events)
+        click.echo(merged.to_ical(), nl=False)
 
 
 if __name__ == '__main__':
