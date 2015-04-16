@@ -5,6 +5,7 @@ from urllib.parse import urlparse, urlunparse
 import sys
 import icalendar
 import click
+import itertools
 
 
 def is_url(s):
@@ -29,20 +30,28 @@ def parse_calendar(text):
     return icalendar.Calendar.from_ical(text)
 
 
-def merge(cals):
-    merged = icalendar.Calendar()
-    for cal in cals:
-        for component in cal.subcomponents:
-            if isinstance(component, icalendar.cal.Event):
-                merged.add_component(component)
-    return merged
+def events_in(cal):
+    """Generate a sequence of `Event`s in a `Calendar`."""
+    for component in cal.subcomponents:
+        if isinstance(component, icalendar.cal.Event):
+            yield component
+
+
+def make_calendar(events):
+    """Create a `Calendar` containing the sequence of `Event`s."""
+    cal = icalendar.Calendar()
+    for event in events:
+        cal.add_component(event)
+    return cal
 
 
 @click.command()
 @click.argument('calendars', nargs=-1)
 def calcat(calendars):
-    cal = merge(parse_calendar(read(path)) for path in calendars)
-    sys.stdout.buffer.write(cal.to_ical())
+    cals = (parse_calendar(read(path)) for path in calendars)
+    events = itertools.chain.from_iterable(events_in(cal) for cal in cals)
+    merged = make_calendar(events)
+    sys.stdout.buffer.write(merged.to_ical())
 
 
 if __name__ == '__main__':
