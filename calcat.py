@@ -45,11 +45,25 @@ def make_calendar(events):
     return cal
 
 
+def opaquify(event, whitelist=('DTSTART', 'DTEND', 'UID'), title='Event'):
+    """Get a version of the event with all the identifying information
+    removed (i.e., just show that you're busy then).
+    """
+    e = icalendar.cal.Event()
+    for key in whitelist:
+        e[key] = event[key]
+    e['SUMMARY'] = icalendar.prop.vText(title.encode('utf8'))
+    return e
+
+
 @click.command()
 @click.argument('calendars', nargs=-1)
-def calcat(calendars):
+@click.option('--opaque', '-o', is_flag=True)
+def calcat(calendars, opaque):
     cals = (parse_calendar(read(path)) for path in calendars)
     events = itertools.chain.from_iterable(events_in(cal) for cal in cals)
+    if opaque:
+        events = map(opaquify, events)
     merged = make_calendar(events)
     sys.stdout.buffer.write(merged.to_ical())
 
