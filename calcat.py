@@ -2,7 +2,6 @@
 
 import requests
 from urllib.parse import urlparse, urlunparse
-import sys
 import icalendar
 import click
 import itertools
@@ -56,6 +55,22 @@ def opaquify(event, whitelist=('DTSTART', 'DTEND', 'UID')):
     return e
 
 
+def human_time(arw, with_date=True, now=None):
+    now = now or arw.now()
+
+    time_part = arw.format('h:mma')
+
+    if with_date:
+        if arw.date() == now.date():
+            day_part = 'today'
+        else:
+            day_part = arw.format('MMMM D')
+        return '{} {}'.format(day_part, time_part)
+
+    else:
+        return time_part
+
+
 def describe_events(events):
     """Summarize a list of events in English, generating lines for
     output.
@@ -65,7 +80,8 @@ def describe_events(events):
         if 'DTSTART' in event and 'DTEND' in event:
             start = arrow.get(event.decoded('DTSTART'))
             end = arrow.get(event.decoded('DTEND'))
-            line = '* {} to {}'.format(start.humanize(), end.humanize())
+            line = '* {} to {}'.format(human_time(start),
+                                       human_time(end, False))
             if 'SUMMARY' in event:
                 title = str(event['SUMMARY'])
                 line += ': {}'.format(title)
